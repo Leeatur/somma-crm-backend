@@ -2,10 +2,15 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 
 const Demanda = require('./models/Demanda');
+const User = require('./models/User');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'somma-crm-secret-key-dev';
 
 const app = express();
 const httpServer = createServer(app);
@@ -26,6 +31,84 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/somma-
 mongoose.connect(MONGODB_URI)
   .then(() => console.log('✅ Conectado ao MongoDB'))
   .catch(err => console.error('❌ Erro ao conectar ao MongoDB:', err));
+
+// Rotas de Autenticação
+
+// Registro
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { nome, email, senha } = req.body;
+
+    if (!nome || !email || !senha) {
+      return res.status(400).json({ error: 'Nome, email e senha são obrigatórios.' });
+    }
+
+    const existente = await User.findOne({ email: email.toLowerCase() });
+    if (existente) {
+      return res.status(409).json({ error: 'Este e-mail já está cadastrado.' });
+    }
+
+    const hash = await bcrypt.hash(senha, 10);
+    const user = await User.create({ nome, email, senha: hash });
+
+    const token = jwt.sign(
+      { id: user._id, nome: user.nome, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.status(201).json({ token, usuario: { id: user._id, nome: user.nome, email: user.email } });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Login
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, senha } = req.body;
+
+    if (!email || !senha) {
+      return res.status(400).json({ error: 'E-mail e senha são obrigatórios.' });
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
+    }
+
+    const senhaValida = await bcrypt.compare(senha, user.senha);
+    if (!senhaValida) {
+      return res.status(401).json({ error: 'E-mail ou senha inválidos.' });
+    }
+
+    const token = jwt.sign(
+      { id: user._id, nome: user.nome, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({ token, usuario: { id: user._id, nome: user.nome, email: user.email } });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Verificar token
+app.get('/api/auth/me', (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Token não fornecido.' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const payload = jwt.verify(token, JWT_SECRET);
+    res.json({ usuario: { id: payload.id, nome: payload.nome, email: payload.email } });
+  } catch {
+    res.status(401).json({ error: 'Token inválido ou expirado.' });
+  }
+});
 
 // Rotas API
 
