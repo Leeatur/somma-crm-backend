@@ -7,6 +7,7 @@ const DemandaSchema = new mongoose.Schema({
   fantasia:         { type: String, default: '' },
   contato:          { type: String, default: '' },
   cidade:           { type: String, default: '' },
+  representante:    { type: String, default: '' },
   marca:            { type: String, required: true },
   valor:            { type: String, default: '' },
   dataContato:      { type: String, default: () => new Date().toISOString().split('T')[0] },
@@ -21,9 +22,9 @@ const DemandaSchema = new mongoose.Schema({
   status: {
     type: String,
     required: true,
-    default: 'pendente',
-    enum: ['pendente', 'encaminhado_fabrica', 'aguardando_retorno',
-           'solicitacao_nf_devolucao', 'nf_enviada_cliente', 'resolvido_parcial', 'resolvido']
+    default: 'aguardando_retorno_fabrica',
+    enum: ['aguardando_retorno_fabrica', 'aguardando_nf_cliente', 'aguardando_nf_fabrica',
+           'aguardando_desconto', 'credito_compras_futuras', 'resolvido_finalizado']
   },
   prioridade: {
     type: String,
