@@ -23,8 +23,8 @@ const DemandaSchema = new mongoose.Schema({
     type: String,
     required: true,
     default: 'aguardando_retorno_fabrica',
-    enum: ['aguardando_retorno_fabrica', 'aguardando_nf_cliente', 'aguardando_nf_fabrica',
-           'aguardando_desconto', 'credito_compras_futuras', 'resolvido_finalizado']
+    enum: ['aguardando_retorno_fabrica', 'aguardando_retorno_cliente', 'aguardando_nf_cliente',
+           'aguardando_nf_fabrica', 'aguardando_desconto', 'credito_compras_futuras', 'resolvido_finalizado']
   },
   prioridade: {
     type: String,
