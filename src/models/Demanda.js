@@ -10,6 +10,7 @@ const DemandaSchema = new mongoose.Schema({
   representante:    { type: String, default: '' },
   marca:            { type: String, required: true },
   valor:            { type: String, default: '' },
+  dataCriacao:      { type: String, default: '' },
   dataContato:      { type: String, default: () => new Date().toISOString().split('T')[0] },
   tipoProblema: {
     type: String,
