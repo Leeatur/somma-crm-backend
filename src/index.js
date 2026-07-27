@@ -194,6 +194,66 @@ app.get('/api/auth/me', async (req, res) => {
 // Sala do socket para uma empresa
 const salaEmpresa = (empresaId) => `empresa:${empresaId}`;
 
+// ── Equipe (usuários da mesma empresa) ──
+
+// Listar a equipe da empresa
+app.get('/api/equipe', requireAuth, async (req, res) => {
+  try {
+    const membros = await User.find({ empresaId: req.empresaId })
+      .select('nome email papel createdAt').sort({ createdAt: 1 });
+    res.json(membros.map(m => ({ id: m._id, nome: m.nome, email: m.email, papel: m.papel })));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Adicionar uma pessoa à empresa (somente o dono)
+app.post('/api/equipe', requireAuth, async (req, res) => {
+  try {
+    if (req.user.papel !== 'dono') {
+      return res.status(403).json({ error: 'Apenas o dono pode adicionar pessoas.' });
+    }
+    const { nome, email, senha, papel } = req.body;
+    if (!nome || !email || !senha) {
+      return res.status(400).json({ error: 'Nome, e-mail e senha são obrigatórios.' });
+    }
+    if (String(senha).length < 6) {
+      return res.status(400).json({ error: 'A senha deve ter no mínimo 6 caracteres.' });
+    }
+    const existe = await User.findOne({ email: String(email).toLowerCase() });
+    if (existe) {
+      return res.status(409).json({ error: 'Este e-mail já está cadastrado.' });
+    }
+    const hash = await bcrypt.hash(senha, 10);
+    const novo = await User.create({
+      nome, email, senha: hash,
+      empresaId: req.empresaId,
+      papel: papel === 'dono' ? 'dono' : 'membro',
+    });
+    res.status(201).json({ id: novo._id, nome: novo.nome, email: novo.email, papel: novo.papel });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Remover uma pessoa da empresa (somente o dono; não pode remover a si mesmo)
+app.delete('/api/equipe/:id', requireAuth, async (req, res) => {
+  try {
+    if (req.user.papel !== 'dono') {
+      return res.status(403).json({ error: 'Apenas o dono pode remover pessoas.' });
+    }
+    if (String(req.params.id) === String(req.user._id)) {
+      return res.status(400).json({ error: 'Você não pode remover a si mesmo.' });
+    }
+    const alvo = await User.findOne({ _id: req.params.id, empresaId: req.empresaId });
+    if (!alvo) return res.status(404).json({ error: 'Pessoa não encontrada.' });
+    await User.deleteOne({ _id: alvo._id });
+    res.json({ message: 'Pessoa removida da equipe.' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ── Configuração da empresa (colunas + campos das demandas) ──
 
 // Ler a config da própria empresa
