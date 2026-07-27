@@ -194,6 +194,78 @@ app.get('/api/auth/me', async (req, res) => {
 // Sala do socket para uma empresa
 const salaEmpresa = (empresaId) => `empresa:${empresaId}`;
 
+// ── Configuração da empresa (colunas + campos das demandas) ──
+
+// Ler a config da própria empresa
+app.get('/api/empresa', requireAuth, async (req, res) => {
+  try {
+    const empresa = await Empresa.findById(req.empresaId);
+    if (!empresa) return res.status(404).json({ error: 'Empresa não encontrada' });
+    res.json({
+      id: empresa._id,
+      nome: empresa.nome,
+      colunas: empresa.colunas || [],
+      camposDemanda: empresa.camposDemanda || [],
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Salvar a config (somente o dono da empresa pode editar)
+app.put('/api/empresa', requireAuth, async (req, res) => {
+  try {
+    if (req.user.papel !== 'dono') {
+      return res.status(403).json({ error: 'Apenas o dono da empresa pode alterar a configuração.' });
+    }
+    const { colunas, camposDemanda } = req.body;
+    const update = {};
+
+    if (Array.isArray(colunas)) {
+      const limpas = colunas
+        .filter(c => c && (c.titulo || c.id))
+        .map((c, i) => ({
+          id: (c.id || c.titulo || `col_${i}`).toString(),
+          titulo: (c.titulo || c.id || `Coluna ${i + 1}`).toString(),
+          cor: (c.cor || '#64748b').toString(),
+          ordem: typeof c.ordem === 'number' ? c.ordem : i,
+        }));
+      if (limpas.length === 0) {
+        return res.status(400).json({ error: 'A empresa precisa de pelo menos uma coluna.' });
+      }
+      update.colunas = limpas;
+    }
+
+    if (Array.isArray(camposDemanda)) {
+      const limpos = camposDemanda
+        .filter(c => c && (c.label || c.key))
+        .map((c, i) => ({
+          key: (c.key || c.label || `campo_${i}`).toString(),
+          label: (c.label || c.key || `Campo ${i + 1}`).toString(),
+          tipo: (c.tipo || 'texto').toString(),
+          obrigatorio: !!c.obrigatorio,
+          ordem: typeof c.ordem === 'number' ? c.ordem : i,
+          ativo: c.ativo !== false,
+          opcoes: Array.isArray(c.opcoes) ? c.opcoes.map(String) : [],
+        }));
+      update.camposDemanda = limpos;
+    }
+
+    const empresa = await Empresa.findByIdAndUpdate(req.empresaId, update, { new: true });
+    io.to(salaEmpresa(req.empresaId)).emit('empresa:configatualizada', {
+      colunas: empresa.colunas, camposDemanda: empresa.camposDemanda,
+    });
+    res.json({
+      id: empresa._id,
+      nome: empresa.nome,
+      colunas: empresa.colunas || [],
+      camposDemanda: empresa.camposDemanda || [],
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Listar demandas DA EMPRESA do usuário logado
 app.get('/api/demandas', requireAuth, async (req, res) => {
   try {
