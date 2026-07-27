@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 
 const DemandaSchema = new mongoose.Schema({
+  // Multi-tenant: a qual empresa esta demanda pertence
+  empresaId:        { type: mongoose.Schema.Types.ObjectId, ref: 'Empresa', required: true, index: true },
   nomeCliente:      { type: String, required: true },
   cnpj:             { type: String, default: '' },
   razaoSocial:      { type: String, default: '' },
@@ -12,27 +14,14 @@ const DemandaSchema = new mongoose.Schema({
   valor:            { type: String, default: '' },
   dataCriacao:      { type: String, default: '' },
   dataContato:      { type: String, default: () => new Date().toISOString().split('T')[0] },
-  tipoProblema: {
-    type: String,
-    default: 'outros',
-    enum: ['devolucao_defeito', 'devolucao_atraso', 'devolucao_desconformidade',
-           'devolucao_outros', 'segunda_via_boleto', 'segunda_via_nf',
-           'peca_defeito', 'troca_mercadoria', 'outros']
-  },
+  // enum removido de propósito: na Fase 2 cada empresa define seus próprios
+  // tipos/colunas, então a validação passa a ser por empresa (não no schema).
+  tipoProblema:     { type: String, default: 'outros' },
   encaminhadoPara:  { type: String, default: '-' },
-  status: {
-    type: String,
-    required: true,
-    default: 'aguardando_retorno_fabrica',
-    enum: ['aguardando_retorno_fabrica', 'aguardando_retorno_cliente', 'aguardando_nf_cliente',
-           'aguardando_nf_fabrica', 'aguardando_desconto', 'credito_compras_futuras', 'resolvido_finalizado']
-  },
-  prioridade: {
-    type: String,
-    required: true,
-    default: 'media',
-    enum: ['baixa', 'media', 'alta', 'urgente']
-  },
+  status:           { type: String, required: true, default: 'aguardando_retorno_fabrica' },
+  prioridade:       { type: String, required: true, default: 'media' },
+  // Valores de campos criados pelo próprio cliente (Fase 2)
+  camposCustom:     { type: mongoose.Schema.Types.Mixed, default: {} },
   observacoes:          { type: String, default: '' },
   numeroNFDevolucao:    { type: String, default: '' },
   dataRecebimentoNF:    { type: String, default: '' },
